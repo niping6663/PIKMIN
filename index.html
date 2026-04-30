@@ -18,7 +18,7 @@
   --radius:18px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{min-height:100%;font-family:'Nunito',sans-serif}
+html,body{min-height:100%;font-family:'Nunito',sans-serif;position:relative}
 body{background:linear-gradient(180deg,#87ceeb 0%,#b8dff5 35%,#c8e6b0 60%,#7ab84e 100%);min-height:100vh;overflow-x:hidden}
 
 /* Sky clouds */
@@ -125,7 +125,7 @@ body{background:linear-gradient(180deg,#87ceeb 0%,#b8dff5 35%,#c8e6b0 60%,#7ab84
 .card-btns{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
 
 /* Modal */
-.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(3px)}
+.modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;padding-top:120px;z-index:9999;}
 .modal{background:white;border-radius:24px;padding:2rem;max-width:320px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3);border:3px solid var(--ground)}
 .modal-pikmin{margin:0 auto .75rem;animation:bounce 0.6s ease-in-out infinite alternate}
 @keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-8px)}}
@@ -408,7 +408,7 @@ document.getElementById('title-pkm-right').innerHTML = pkmPurple(40, false);
 
 // ---- App State ----
 const MAX = 10;
-const LS_TIMERS = 'pikmin_timers_v2';
+const LS_TIMERS = 'pikmin_timers_v3';
 const LS_SNATCH = 'pikmin_snatch_v1';
 let timers = [];
 let rafId = null;
@@ -475,15 +475,37 @@ function loadState(){
     if(!raw) return false;
     const saved = JSON.parse(raw);
     if(!Array.isArray(saved) || saved.length === 0) return false;
-    timers = saved.map(t => {
-      if(t.state === 'running'){
-        // deadline is an absolute epoch — still valid after reload
-        if(Date.now() >= t.deadline){ t.state = 'done'; firedAlarms.add(t.id); }
+    const loaded = saved.map(t => {
+      // Validate required fields — discard malformed entries from old versions
+      if(!t || typeof t.id !== 'number') return null;
+      const timer = {
+        id: t.id,
+        name: t.name || '鬧鐘',
+        rawH: parseInt(t.rawH) || 0,
+        rawM: parseInt(t.rawM) || 5,
+        rawS: parseInt(t.rawS) || 0,
+        state: ['idle','running','paused','done'].includes(t.state) ? t.state : 'idle',
+        deadline: typeof t.deadline === 'number' ? t.deadline : 0,
+        pausedRemaining: typeof t.pausedRemaining === 'number' ? t.pausedRemaining : 0,
+        pikminType: typeof t.pikminType === 'number' ? t.pikminType : 0,
+      };
+      // If was running, check deadline is still valid
+      if(timer.state === 'running'){
+        if(!timer.deadline || Date.now() >= timer.deadline){
+          timer.state = 'done';
+          firedAlarms.add(timer.id);
+        }
       }
-      return t;
-    });
+      return timer;
+    }).filter(Boolean);
+    if(loaded.length === 0) return false;
+    timers = loaded;
     return true;
-  }catch(e){ return false; }
+  }catch(e){
+    // Corrupt data — wipe and start fresh
+    try{ localStorage.removeItem(LS_TIMERS); }catch(_){}
+    return false;
+  }
 }
 
 // ---- Audio ----
@@ -687,10 +709,11 @@ function render(){
 }
 
 function resetAllTimers(){
-  showConfirm('確定要將所有鬧鐘歸零嗎？', ()=>{
+  showConfirm('確定要將所有鬧鐘時間歸零嗎？', ()=>{
     timers.forEach(t=>{
       stopAlarm(t.id); firedAlarms.delete(t.id); delete _lastRenderSec[t.id];
       t.state='idle'; t.deadline=0; t.pausedRemaining=0;
+      t.rawH=0; t.rawM=0; t.rawS=0;
     });
     if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
     saveState(); render();
@@ -699,21 +722,11 @@ function resetAllTimers(){
 }
 
 function showConfirm(msg, onOk){
-  const bd=document.createElement('div');
-  bd.className='modal-backdrop';
-  bd.innerHTML=`<div class="modal">
-    <div style="font-size:36px;margin-bottom:.5rem">🤔</div>
-    <h2 style="font-size:16px;margin-bottom:.75rem">${msg}</h2>
-    <div style="display:flex;gap:10px;justify-content:center">
-      <button class="btn btn-danger" id="confirm-ok">確定</button>
-      <button class="btn btn-ghost" onclick="this.closest('.modal-backdrop').remove()">取消</button>
-    </div>
-  </div>`;
-  document.body.appendChild(bd);
-  bd.querySelector('#confirm-ok').onclick = ()=>{ bd.remove(); onOk(); };
+  if(window.confirm(msg)) onOk();
 }
 
 
+function showModal(name, pikminType){
   const bd=document.createElement('div');
   bd.className='modal-backdrop';
   bd.innerHTML=`<div class="modal">
