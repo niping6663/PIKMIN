@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>皮克敏倒數鬧鐘</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --red:#e63946; --yellow:#f4c430; --blue:#4895ef; --purple:#9b5de5;
+  --white:#f8f9fa; --rock:#7b6c5b; --winged:#ff6b9d;
+  --ground:#5a8a3c; --ground-dark:#3d6128; --ground-light:#7ab84e;
+  --sky:#87ceeb; --sky-dark:#5ba3cc;
+  --stem:#6ab04c; --leaf:#55efc4;
+  --card-bg:rgba(255,255,255,0.88);
+  --text-dark:#2d2d2d; --text-mid:#555;
+  --shadow:0 4px 20px rgba(0,0,0,0.15);
+  --radius:18px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%;font-family:'Nunito',sans-serif}
+body{background:linear-gradient(180deg,#87ceeb 0%,#b8dff5 35%,#c8e6b0 60%,#7ab84e 100%);min-height:100vh;overflow-x:hidden}
+
+/* Sky clouds */
+.clouds{position:fixed;top:0;left:0;width:100%;height:200px;pointer-events:none;z-index:0}
+.cloud{position:absolute;background:white;border-radius:50px;opacity:.85}
+.cloud::before,.cloud::after{content:'';position:absolute;background:white;border-radius:50%}
+.cloud1{width:120px;height:40px;top:30px;left:5%;animation:driftCloud 28s linear infinite}
+.cloud1::before{width:60px;height:55px;top:-25px;left:15px}
+.cloud1::after{width:45px;height:45px;top:-18px;left:50px}
+.cloud2{width:90px;height:30px;top:70px;left:60%;animation:driftCloud 35s linear infinite 5s}
+.cloud2::before{width:45px;height:40px;top:-18px;left:12px}
+.cloud2::after{width:35px;height:35px;top:-14px;left:38px}
+.cloud3{width:150px;height:45px;top:20px;left:35%;animation:driftCloud 42s linear infinite 12s}
+.cloud3::before{width:70px;height:60px;top:-28px;left:20px}
+.cloud3::after{width:55px;height:52px;top:-22px;left:65px}
+@keyframes driftCloud{from{transform:translateX(-200px)}to{transform:translateX(calc(100vw + 200px))}}
+
+/* Ground grass */
+.grass-row{position:fixed;bottom:0;left:0;width:100%;height:80px;z-index:0;overflow:hidden}
+.grass-row svg{width:100%;height:100%}
+
+/* Main layout */
+.app{position:relative;z-index:1;max-width:700px;margin:0 auto;padding:1rem 1rem 5rem}
+
+/* Header */
+.header{text-align:center;padding:1.5rem 0 1rem;position:relative}
+.title-row{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:.5rem}
+.app-title{font-size:32px;font-weight:900;color:#2d6a0a;text-shadow:2px 3px 0 rgba(0,0,0,.15),0 0 20px rgba(100,200,50,.3);letter-spacing:1px}
+.app-subtitle{font-size:13px;color:#4a7c20;font-weight:600}
+
+/* Pikmin decorations SVG */
+.pikmin-parade{display:flex;justify-content:center;gap:8px;margin:6px 0;flex-wrap:wrap}
+
+/* Global bar */
+.global-panel{background:rgba(255,255,255,.82);border-radius:var(--radius);padding:.9rem 1rem;margin-bottom:.9rem;border:2px solid rgba(90,138,60,.3);backdrop-filter:blur(8px);box-shadow:var(--shadow)}
+.panel-title{font-size:13px;font-weight:800;color:var(--ground-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.6rem;display:flex;align-items:center;gap:6px}
+.global-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.global-controls label{font-size:13px;font-weight:700;color:var(--text-dark)}
+.snatch-input-wrap{display:flex;align-items:center;gap:4px}
+.snatch-input-wrap input{width:64px;font-size:15px;font-weight:700;font-family:'Nunito',sans-serif;padding:5px 8px;border:2px solid #ccc;border-radius:10px;background:white;color:var(--text-dark);text-align:center}
+.snatch-input-wrap input:focus{outline:none;border-color:var(--ground)}
+.snatch-input-wrap span{font-size:13px;font-weight:700;color:var(--text-mid)}
+.formula-note{font-size:11px;color:#777;flex:1;min-width:160px;line-height:1.4}
+.btn{font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;padding:6px 14px;border-radius:30px;border:2px solid transparent;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn:active{transform:scale(.96)}
+.btn-green{background:var(--ground);color:white;border-color:var(--ground-dark)}
+.btn-green:hover{background:var(--ground-dark)}
+.btn-blue{background:var(--blue);color:white;border-color:#2a6ecc}
+.btn-blue:hover{background:#2a6ecc}
+.btn-orange{background:#f77f00;color:white;border-color:#c65e00}
+.btn-orange:hover{background:#c65e00}
+.btn-ghost{background:rgba(255,255,255,.7);color:var(--text-dark);border-color:#ccc}
+.btn-ghost:hover{background:white}
+.btn-danger{background:#e63946;color:white;border-color:#b02030}
+.btn-danger:hover{background:#b02030}
+.btn-sm{font-size:12px;padding:4px 10px}
+
+/* Actions bar */
+.actions-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:.9rem;align-items:center}
+
+/* Timer cards */
+.timers{display:flex;flex-direction:column;gap:10px}
+.timer-card{background:var(--card-bg);border-radius:var(--radius);padding:.9rem 1rem;border:2.5px solid rgba(90,138,60,.25);box-shadow:var(--shadow);backdrop-filter:blur(6px);transition:border-color .3s,box-shadow .3s;position:relative;overflow:hidden}
+.timer-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:6px;border-radius:var(--radius) 0 0 var(--radius);background:#ccc;transition:background .3s}
+.timer-card.running::before{background:var(--blue)}
+.timer-card.done::before{background:var(--red)}
+.timer-card.paused::before{background:var(--yellow)}
+.timer-card.running{border-color:rgba(72,149,239,.5);box-shadow:0 4px 20px rgba(72,149,239,.25)}
+.timer-card.done{border-color:rgba(230,57,70,.5);animation:doneGlow 1.5s ease-in-out infinite alternate}
+.timer-card.paused{border-color:rgba(244,196,48,.6)}
+@keyframes doneGlow{from{box-shadow:0 4px 20px rgba(230,57,70,.2)}to{box-shadow:0 4px 30px rgba(230,57,70,.5)}}
+
+.card-inner{display:flex;gap:10px;align-items:start}
+.card-left{flex:1;min-width:0}
+.card-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0}
+
+.timer-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.pikmin-icon{flex-shrink:0}
+.timer-name-input{flex:1;font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;color:var(--text-dark);border:none;background:transparent;outline:none;min-width:0;border-bottom:2px dashed transparent;transition:border-color .2s}
+.timer-name-input:focus{border-bottom-color:var(--ground)}
+.timer-name-input:read-only{cursor:default;color:#444}
+
+.set-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px}
+.set-label{font-size:12px;font-weight:700;color:#888}
+.time-inputs{display:flex;align-items:center;gap:3px}
+.time-inputs input{width:46px;font-size:13px;font-weight:700;font-family:'Nunito',sans-serif;padding:3px 4px;border:2px solid #ddd;border-radius:8px;background:white;color:var(--text-dark);text-align:center}
+.time-inputs input:focus{outline:none;border-color:var(--ground)}
+.time-inputs input:disabled{background:#f0f0f0;color:#999}
+.time-inputs span{font-size:11px;font-weight:700;color:#888}
+
+.actual-row{font-size:11px;color:#888;font-weight:600;margin-top:2px}
+.actual-row strong{color:var(--ground-dark)}
+
+.timer-display{font-size:28px;font-weight:900;font-variant-numeric:tabular-nums;color:var(--text-dark);line-height:1;text-align:right;min-width:110px;letter-spacing:1px;transition:color .3s}
+.timer-display.urgent{color:var(--red);animation:pulse .6s ease-in-out infinite alternate}
+@keyframes pulse{from{transform:scale(1)}to{transform:scale(1.05)}}
+
+.badge{font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;display:inline-block}
+.badge.idle{background:#e8f5e9;color:#2d6a0a}
+.badge.running{background:#e3f2fd;color:#1565c0}
+.badge.paused{background:#fff8e1;color:#e65100}
+.badge.done{background:#ffebee;color:#b71c1c}
+
+.card-btns{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+
+/* Modal */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(3px)}
+.modal{background:white;border-radius:24px;padding:2rem;max-width:320px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3);border:3px solid var(--ground)}
+.modal-pikmin{margin:0 auto .75rem;animation:bounce 0.6s ease-in-out infinite alternate}
+@keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-8px)}}
+.modal h2{font-size:22px;font-weight:900;color:var(--ground-dark);margin-bottom:.4rem}
+.modal p{font-size:14px;color:#666;margin-bottom:1.2rem;line-height:1.5}
+
+/* Add btn floating */
+#add-btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* Sort label */
+.sort-hint{font-size:12px;color:#777;font-weight:600;font-style:italic}
+
+/* Pikmin SVG helpers */
+.pkm{display:inline-block}
+
+/* Responsive */
+@media(max-width:480px){
+  .app-title{font-size:24px}
+  .timer-display{font-size:22px;min-width:90px}
+  .card-inner{flex-direction:column}
+  .card-right{flex-direction:row;align-items:center;justify-content:space-between;width:100%}
+  .timer-display{font-size:22px}
+}
+</style>
+</head>
+<body>
+
+<!-- Sky clouds -->
+<div class="clouds">
+  <div class="cloud cloud1"></div>
+  <div class="cloud cloud2"></div>
+  <div class="cloud cloud3"></div>
+</div>
+
+<!-- Ground grass -->
+<div class="grass-row">
+  <svg viewBox="0 0 1440 80" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="gr" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#7ab84e"/>
+        <stop offset="100%" stop-color="#4a7c20"/>
+      </linearGradient>
+    </defs>
+    <!-- Grass blades -->
+    <path d="M0,80 L0,45 Q10,20 20,45 Q30,20 40,45 Q50,20 60,45 Q70,20 80,45 Q90,20 100,45 Q110,20 120,45 Q130,20 140,45 Q150,20 160,45 Q170,20 180,45 Q190,20 200,45 Q210,20 220,45 Q230,20 240,45 Q250,20 260,45 Q270,20 280,45 Q290,20 300,45 Q310,20 320,45 Q330,20 340,45 Q350,20 360,45 Q370,20 380,45 Q390,20 400,45 Q410,20 420,45 Q430,20 440,45 Q450,20 460,45 Q470,20 480,45 Q490,20 500,45 Q510,20 520,45 Q530,20 540,45 Q550,20 560,45 Q570,20 580,45 Q590,20 600,45 Q610,20 620,45 Q630,20 640,45 Q650,20 660,45 Q670,20 680,45 Q690,20 700,45 Q710,20 720,45 Q730,20 740,45 Q750,20 760,45 Q770,20 780,45 Q790,20 800,45 Q810,20 820,45 Q830,20 840,45 Q850,20 860,45 Q870,20 880,45 Q890,20 900,45 Q910,20 920,45 Q930,20 940,45 Q950,20 960,45 Q970,20 980,45 Q990,20 1000,45 Q1010,20 1020,45 Q1030,20 1040,45 Q1050,20 1060,45 Q1070,20 1080,45 Q1090,20 1100,45 Q1110,20 1120,45 Q1130,20 1140,45 Q1150,20 1160,45 Q1170,20 1180,45 Q1190,20 1200,45 Q1210,20 1220,45 Q1230,20 1240,45 Q1250,20 1260,45 Q1270,20 1280,45 Q1290,20 1300,45 Q1310,20 1320,45 Q1330,20 1340,45 Q1350,20 1360,45 Q1370,20 1380,45 Q1390,20 1400,45 Q1410,20 1420,45 Q1430,20 1440,45 L1440,80 Z" fill="url(#gr)"/>
+  </svg>
+</div>
+
+<div class="app">
+  <!-- Header -->
+  <div class="header">
+    <div class="title-row">
+      <span id="title-pkm-left"></span>
+      <h1 class="app-title">皮克敏倒數鬧鐘</h1>
+      <span id="title-pkm-right"></span>
+    </div>
+    <p class="app-subtitle">與皮克敏一起倒數計時！最多可設定 10 個鬧鐘</p>
+
+    <!-- Pikmin parade -->
+    <div class="pikmin-parade" id="parade"></div>
+  </div>
+
+  <!-- Global panel -->
+  <div class="global-panel">
+    <div class="panel-title">
+      <svg width="16" height="16" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="#f4c430" stroke="#c0890a" stroke-width="1.5"/><text x="10" y="14" text-anchor="middle" font-size="11" font-weight="bold" fill="#8B5E00">★</text></svg>
+      全域搶菇設定
+    </div>
+    <div class="global-controls">
+      <label>搶菇時間</label>
+      <div class="snatch-input-wrap">
+        <input type="number" id="snatch-sec" value="10" min="0" max="300">
+        <span>秒</span>
+      </div>
+      <span class="formula-note">實際倒數 = 設定時間 + 5分鐘 − 搶菇秒數</span>
+      <button class="btn btn-green btn-sm" onclick="applyGlobal()">🍄 套用至全部</button>
+    </div>
+  </div>
+
+  <!-- Actions bar -->
+  <div class="actions-bar">
+    <button class="btn btn-blue" onclick="sortTimers()">↕ 依剩餘時間排序</button>
+    <button class="btn btn-green" onclick="addTimer()" id="add-btn">＋ 新增鬧鐘</button>
+    <button class="btn btn-ghost btn-sm" onclick="stopAllAlarms()">🔇 靜音全部</button>
+    <span class="sort-hint" id="sort-label"></span>
+  </div>
+
+  <!-- Timers -->
+  <div class="timers" id="timers-container"></div>
+</div>
+
+<script>
+// ---- Accurate per-character Pikmin SVG drawers ----
+// 7 types matching the reference image: Blue, Yellow, Red, Rock, Winged(Pink), White, Purple, Ice(Cyan)
+// Index: 0=Blue 1=Yellow 2=Red 3=Rock 4=Winged 5=White 6=Purple 7=Ice  (cycle for cards)
+
+function animWrap(wobble, inner){
+  if(!wobble) return `<g>${inner}</g>`;
+  const dur = (0.75+Math.random()*0.35).toFixed(2);
+  return `<g><animateTransform attributeName="transform" type="translate" values="0,0;0,-4;0,0" dur="${dur}s" repeatCount="indefinite"/>${inner}</g>`;
+}
+
+// 0 Blue Pikmin — blue body, white bud/flower, wide white forehead
+function pkmBlue(sz, wobble){
+  const sc = sz/48;
+  const inner = `
+    <line x1="24" y1="5" x2="24" y2="17" stroke="#4a7c20" stroke-width="3" stroke-linecap="round"/>
+    <ellipse cx="30" cy="3" rx="9" ry="6" fill="#b8e04a" transform="rotate(-20,30,3)"/>
+    <ellipse cx="30" cy="1" rx="3" ry="3" fill="#e8f5a0"/>
+    <ellipse cx="24" cy="22" rx="12" ry="13" fill="#2a7de1"/>
+    <ellipse cx="24" cy="18" rx="10" ry="8" fill="#5aaff5"/>
+    <ellipse cx="24" cy="16" rx="8" ry="5" fill="#8dcfff"/>
+    <circle cx="19" cy="19" r="4" fill="white"/><circle cx="19" cy="19" r="2.4" fill="#111"/>
+    <circle cx="29" cy="19" r="4" fill="white"/><circle cx="29" cy="19" r="2.4" fill="#111"/>
+    <ellipse cx="24" cy="34" rx="6" ry="9" fill="#2a7de1"/>
+    <line x1="18" y1="29" x2="10" y2="37" stroke="#2a7de1" stroke-width="4" stroke-linecap="round"/>
+    <line x1="30" y1="29" x2="38" y2="37" stroke="#2a7de1" stroke-width="4" stroke-linecap="round"/>
+    <line x1="21" y1="41" x2="17" y2="48" stroke="#1a5dbf" stroke-width="3" stroke-linecap="round"/>
+    <line x1="27" y1="41" x2="31" y2="48" stroke="#1a5dbf" stroke-width="3" stroke-linecap="round"/>`;
+  return `<svg width="${sz}" height="${sz}" viewBox="0 0 48 50" xmlns="http://www.w3.org/2000/svg">${animWrap(wobble,inner)}</svg>`;
+}
+
+// 1 Yellow Pikmin — yellow body, big ears, white flower
+function pkmYellow(sz, wobble){
+  const inner = `
+    <line x1="24" y1="5" x2="24" y2="17" stroke="#4a7c20" stroke-width="3" stroke-linecap="round"/>
+    <ellipse cx="30" cy="3" rx="9" ry="6" fill="#9be36b" transform="rotate(-20,30,3)"/>
+    <circle cx="30" cy="1" rx="3" fill="#fff176"/>
+    <ellipse cx="10" cy="21" rx="6" ry="9" fill="#f5c518" transform="rotate(15,10,21)"/>
+    <ellipse cx="38" cy="21" rx="6" ry="9" fill="#f5c518" transform="rotate(-15,38,21)"/>
+    <ellipse cx="24" cy="22" rx="12" ry="13" fill="#f5c518"/>
+    <ellipse cx="24" cy="18" rx="10" ry="7" fill="#ffe87a"/>
+    <circle cx="19" cy="19" r="3.8" fill="white"/><circle cx="19" cy="19" r="2.3" fill="#111"/>
+    <circle cx="29" cy="19" r="3.8" fill="white"/><circle cx="29" cy="19" r="2.3" fill="#111"/>
+    <ellipse cx="24" cy="34" rx="6" ry="9" fill="#f5c518"/>
+    <line x1="18" y1="29" x2="10" y2="37" stroke="#f5c518" stroke-width="4" stroke-linecap="round"/>
+    <line x1="30" y1="29" x2="38" y2="37" stroke="#f5c518" stroke-width="4" stroke-linecap="round"/>
+    <line x1="21" y1="41" x2="17" y2="48" stroke="#c9960a" stroke-width="3" stroke-linecap="round"/>
+    <line x1="27" y1="41" x2="31" y2="48" stroke="#c9960a" stroke-width="3" stroke-linecap="round"/>`;
+  return `<svg width="${sz}" height="${sz}" viewBox="0 0 48 50" xmlns="http://www.w3.org/2000/svg">${animWrap(wobble,inner)}</svg>`;
+}
+
+// 2 Red Pikmin — red body, pointy nose, green leaf
+function pkmRed(sz, wobble){
+  const inner = `
+    <line x1="24" y1="5" x2="24" y2="17" stroke="#4a7c20" stroke-width="3" stroke-linecap="round"/>
+    <ellipse cx="30" cy="3" rx="10" ry="6" fill="#55c962" transform="rotate(-25,30,3)"/>
+    <ellipse cx="24" cy="22" rx="12" ry="13" fill="#e32c3b"/>
+    <ellipse cx="24" cy="17" rx="9" ry="7" fill="#ff5a5a"/>
+    <path d="M24,22 Q28,26 32,22" fill="#e32c3b"/>
+    <ellipse cx="31" cy="21" rx="3" ry="2" fill="#ff5a5a"/>
+    <circle cx="19" cy="18" r="3.8" fill="white"/><circle cx="19" cy="18" r="2.3" fill="#111"/>
+    <circle cx="28" cy="18" r="3.8" fill="white"/><circle cx="28" cy="18" r="2.3" fill="#111"/>
+    <ellipse cx="24" cy="34" rx="6" ry="9" fill="#e32c3b"/>
+    <line x1="18" y1="29" x2="10" y2="37" stroke="#e32c3b" stroke-width="4" stroke-linecap="round"/>
+    <line x1="30" y1="29" x2="38" y2="37" stroke="#e32c3b" stroke-width="4" stroke-linecap="round"/>
+    <line x1="21" y1="41" x2="17" y2="48" stroke="#a31020" stroke-width="3" stroke-linecap="round"/>
+    <line x1="27" y1="41" x2="31" y2="48" stroke="#a31020" stroke-width="3" stroke-linecap="round"/>`;
+  return `<svg width="${sz}" height="${sz}" viewBox="0 0 48 50" xmlns="http://www.w3.org/2000/svg">${animWrap(wobble,inner)}</svg>`;
+}
+
+// 3 Rock Pikmin — dark angular rocky body, small eyes, tiny sprout
+function pkmRock(sz, wobble){
+  const inner = `
+    <line x1="24" y1="4" x2="24" y2="13" stroke="#5a7a30" stroke-width="2.5" stroke-linecap="round"/>
+    <ellipse cx="29" cy="3" rx="6" ry="4" fill="#8bc34a" transform="rotate(-15,29,3)"/>
+    <polygon points="24,10 36,16 38,30 30,40 18,40 10,30 12,16" fill="#444" />
+    <polygon points="24,10 34,15 36,26 29,36 19,36 12,26 14,15" fill="#666" />
+    <polygon points="20,12 28,12 33,19 31,28 17,28 15,19" fill="#555" />
+    <polygon points="24,13 30,18 28,26 20,26 18,18" fill="#777" />
+    <circle cx="19.5" cy="21" r="3.2" fill="white"/><circle cx="19.5" cy="21" r="1.9" fill="#111"/>
+    <circle cx="28.5" cy="21" r="3.2" fill="white"/><circle cx="28.5" cy="21" r="1.9" fill="#111"/>
+    <line x1="16" y1="32" x2="9" y2="40" stroke="#444" stroke-width="4" stroke-linecap="round"/>
+    <line x1="32" y1="32" x2="39" y2="40" stroke="#444" stroke-width="4" stroke-linecap="round"/>
+    <line x1="20" y1="40" x2="17" y2="48" stroke="#333" stroke-width="3" stroke-linecap="round"/>
+    <line x1="28" y1="40" x2="31" y2="48" stroke="#333" stroke-width="3" stroke-linecap="round"/>`;
+  return `<svg width="${sz}" height="${sz}" viewBox="0 0 48 50" xmlns="http://www.w3.org/2000/svg">${animWrap(wobble,inner)}</svg>`;
+}
+
+// 4 Winged Pikmin — pink body, blue goggles, dragonfly wings, no legs (floats)
+function pkmWinged(sz, wobble){
+  const inner = `
+    <ellipse cx="14" cy="20" rx="12" ry="5" fill="rgba(180,230,255,0.65)" transform="rotate(-20,14,20)"/>
+    <ellipse cx="34" cy="20" rx="12" ry="5" fill="rgba(180,230,255,0.65)" transform="rotate(20,34,20)"/>
+    <ellipse cx="12" cy="28" rx="8" ry="3.5" fill="rgba(180,230,255,0.5)" transform="rotate(-10,12,28)"/>
+    <ellipse cx="36" cy="28" rx="8" ry="3.5" fill="rgba(180,230,255,0.5)" transform="rotate(10,36,28)"/>
+    <line x1="24" y1="7" x2="24" y2="16" stroke="#c76e92" stroke-width="2.5" stroke-linecap="round"/>
+    <ellipse cx="30" cy="5" rx="8" ry="5" fill="#ffb3d0" transform="rotate(-20,30,5)"/>
+    <ellipse cx="24" cy="22" rx="11" ry="12" fill="#f48fb1"/>
+    <ellipse cx="24" cy="18" rx="9" ry="7" fill="#ffc2d4"/>
+    <rect x="14" y="16" width="8" height="5" rx="3" fill="#29b6f6" opacity="0.85"/>
+    <rect x="26" y="16" width="8" height="5" rx="3" fill="#29b6f6" opacity="0.85"/>
+    <line x1="18" y1="18" x2="14" y2="18" stroke="#0288d1" stroke-width="1.5"/>
+    <line x1="30" y1="18" x2="34" y2="18" stroke="#0288d1" stroke-width="1.5"/>
+    <line x1="22" y1="18" x2="26" y2="18" stroke="#f48fb1" stroke-width="1.5"/>
+    <ellipse cx="24" cy="32" rx="5" ry="8" fill="#f48fb1"/>
+    <line x1="20" y1="38" x2="16" y2="46" stroke="#c2607e" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="28" y1="38" x2="32" y2="46" stroke="#c2607e" stroke-width="2.5" stroke-linecap="round"/>`;
+  return `<svg width="${sz}" height="${sz}" viewBox="0 0 48 50" xmlns="http://www.w3.org/2000/svg">${animWrap(wobble,inner)}</svg>`;
+}
+
+// 5 White Pikmin — white/pale body, red eyes (no pupils — glowing red)
+function pkmWhite(sz, wobble){
+  const inner = `
+    <line x1="24" y1="5" x2="24" y2="16" stroke="#4a7c20" stroke-width="2.5" stroke-linecap="round"/>
+    <ellipse cx="30" cy="3" rx="8" ry="5" fill="#ff6b6b" transform="rotate(-20,30,3)"/>
+    <circle cx="30" cy="1" rx="2.5" fill="#ff4444"/>
+    <ellipse cx="24" cy="21" rx="11" ry="12" fill="#f0f0f0"/>
+    <ellipse cx="24" cy="17" rx="9" ry="7" fill="white"/>
+    <circle cx="19" cy="18" r="4" fill="#e53935"/><circle cx="19" cy="18" r="2.2" fill="#ff6b6b"/>
+    <circle cx="29" cy="18" r="4" fill="#e53935"/><circle cx="29" cy="18" r="2.2" fill="#ff6b6b"/>
+    <ellipse cx="24" cy="33" rx="5.5" ry="8" fill="#f0f0f0"/>
+    <line x1="18" y1="28" x2="10" y2="36" stroke="#e0e0e0" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="30" y1="28" x2="38" y2="36" stroke="#e0e0e0" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="21" y1="40" x2="17" y2="48" stroke="#bdbdbd" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="27" y1="40" x2="31" y2="48" stroke="#bdbdbd" stroke-width="2.5" stroke-linecap="round"/>`;
+  return `<svg width="${sz}" height="${sz}" viewBox="0 0 48 50" xmlns="http://www.w3.org/2000/svg">${animWrap(wobble,inner)}</svg>`;
+}
+
+// 6 Purple Pikmin — chunky dark purple body, wide head, purple flower
+function pkmPurple(sz, wobble){
+  const inner = `
+    <line x1="24" y1="3" x2="24" y2="14" stroke="#4a7c20" stroke-width="3" stroke-linecap="round"/>
+    <ellipse cx="31" cy="1" rx="9" ry="6" fill="#ce93d8" transform="rotate(-15,31,1)"/>
+    <circle cx="31" cy="-1" rx="4" fill="#ba68c8"/>
+    <ellipse cx="24" cy="21" rx="14" ry="14" fill="#6a1b9a"/>
+    <ellipse cx="24" cy="16" rx="11" ry="9" fill="#9c27b0"/>
+    <ellipse cx="24" cy="14" rx="9" ry="6" fill="#ab47bc"/>
+    <circle cx="18.5" cy="18" r="4.2" fill="white"/><circle cx="18.5" cy="18" r="2.5" fill="#111"/>
+    <circle cx="29.5" cy="18" r="4.2" fill="white"/><circle cx="29.5" cy="18" r="2.5" fill="#111"/>
+    <ellipse cx="24" cy="35" rx="7" ry="10" fill="#6a1b9a"/>
+    <line x1="17" y1="29" x2="8" y2="37" stroke="#6a1b9a" stroke-width="5" stroke-linecap="round"/>
+    <line x1="31" y1="29" x2="40" y2="37" stroke="#6a1b9a" stroke-width="5" stroke-linecap="round"/>
+    <line x1="20" y1="43" x2="16" y2="50" stroke="#4a148c" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="28" y1="43" x2="32" y2="50" stroke="#4a148c" stroke-width="3.5" stroke-linecap="round"/>`;
+  return `<svg width="${sz}" height="${sz}" viewBox="0 0 48 52" xmlns="http://www.w3.org/2000/svg">${animWrap(wobble,inner)}</svg>`;
+}
+
+// 7 Ice Pikmin — crystal cyan/light blue faceted body
+function pkmIce(sz, wobble){
+  const inner = `
+    <line x1="24" y1="5" x2="24" y2="15" stroke="#4a9ca8" stroke-width="2.5" stroke-linecap="round"/>
+    <ellipse cx="30" cy="3" rx="9" ry="5" fill="#b2ebf2" transform="rotate(-20,30,3)"/>
+    <circle cx="30" cy="1" rx="3" fill="#e0f7fa"/>
+    <polygon points="24,10 36,18 36,30 28,40 20,40 12,30 12,18" fill="#4dd0e1"/>
+    <polygon points="24,10 34,17 34,28 27,37 21,37 14,28 14,17" fill="#80deea"/>
+    <polygon points="24,12 31,18 31,26 25,32 19,32 17,26 17,18" fill="#b2ebf2"/>
+    <polygon points="20,14 28,14 32,20 30,28 18,28 16,20" fill="#e0f7fa" opacity="0.7"/>
+    <circle cx="19.5" cy="22" r="3.8" fill="white"/><circle cx="19.5" cy="22" r="2.2" fill="#0097a7"/>
+    <circle cx="28.5" cy="22" r="3.8" fill="white"/><circle cx="28.5" cy="22" r="2.2" fill="#0097a7"/>
+    <line x1="16" y1="33" x2="9" y2="41" stroke="#4dd0e1" stroke-width="4" stroke-linecap="round"/>
+    <line x1="32" y1="33" x2="39" y2="41" stroke="#4dd0e1" stroke-width="4" stroke-linecap="round"/>
+    <line x1="21" y1="40" x2="18" y2="48" stroke="#00838f" stroke-width="3" stroke-linecap="round"/>
+    <line x1="27" y1="40" x2="30" y2="48" stroke="#00838f" stroke-width="3" stroke-linecap="round"/>`;
+  return `<svg width="${sz}" height="${sz}" viewBox="0 0 48 50" xmlns="http://www.w3.org/2000/svg">${animWrap(wobble,inner)}</svg>`;
+}
+
+const PIKMIN_DRAW = [pkmBlue, pkmYellow, pkmRed, pkmRock, pkmWinged, pkmWhite, pkmPurple, pkmIce];
+const PIKMIN_NAMES = ['藍皮克敏','黃皮克敏','紅皮克敏','岩石皮克敏','翅膀皮克敏','白皮克敏','紫皮克敏','冰皮克敏'];
+
+function pikminSVG(type, size=40, wobble=false){
+  const fn = PIKMIN_DRAW[type % PIKMIN_DRAW.length];
+  return fn(size, wobble);
+}
+
+// Build parade — all 7 from the image in order: blue yellow red rock winged white purple ice
+function buildParade(){
+  const el = document.getElementById('parade');
+  let html = '';
+  const order = [0,1,2,3,4,5,6,7];
+  order.forEach(i => { html += `<span class="pkm">${pikminSVG(i,36,true)}</span>`; });
+  el.innerHTML = html;
+}
+buildParade();
+
+// Inject title flanking pikmin (blue left, purple right)
+document.getElementById('title-pkm-left').innerHTML = pkmBlue(40, false);
+document.getElementById('title-pkm-right').innerHTML = pkmPurple(40, false);
+
+// ---- App State ----
+const MAX = 10;
+let timers = [];
+let tickInterval = null;
+let alarmCtx = null;
+let activeAlarms = {};
+
+function getCtx(){if(!alarmCtx)alarmCtx=new(window.AudioContext||window.webkitAudioContext)();return alarmCtx;}
+
+function playAlarm(id){
+  if(activeAlarms[id])return;
+  const ctx=getCtx();
+  let stopped=false;
+  function beep(){
+    if(stopped)return;
+    const g=ctx.createGain();g.connect(ctx.destination);
+    const o=ctx.createOscillator();o.type='sine';o.frequency.value=880;o.connect(g);
+    g.gain.setValueAtTime(0.35,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.45);
+    o.start(ctx.currentTime);o.stop(ctx.currentTime+0.45);
+    const o2=ctx.createOscillator();o2.type='sine';o2.frequency.value=1100;
+    const g2=ctx.createGain();g2.connect(ctx.destination);o2.connect(g2);
+    g2.gain.setValueAtTime(0.2,ctx.currentTime+0.5);
+    g2.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.9);
+    o2.start(ctx.currentTime+0.5);o2.stop(ctx.currentTime+0.9);
+    setTimeout(beep,1200);
+  }
+  beep();
+  activeAlarms[id]={stop:()=>{stopped=true;}};
+}
+function stopAlarm(id){if(activeAlarms[id]){activeAlarms[id].stop();delete activeAlarms[id];}}
+function stopAllAlarms(){Object.keys(activeAlarms).forEach(stopAlarm);}
+
+function snatchSec(){return parseInt(document.getElementById('snatch-sec').value)||0;}
+function calcActualSec(raw){return Math.max(0,raw+300-snatchSec());}
+function fmtTime(sec){
+  if(sec<0)return '--:--:--';
+  const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60;
+  return [h,m,s].map(v=>String(v).padStart(2,'0')).join(':');
+}
+
+function addTimer(){
+  if(timers.length>=MAX){showToast('最多只能設 10 個鬧鐘！');return;}
+  const idx=timers.length;
+  timers.push({id:Date.now(),name:'鬧鐘 '+(idx+1),rawH:0,rawM:5,rawS:0,remaining:-1,state:'idle',pikminType:idx%PIKMIN_DRAW.length});
+  render();
+}
+function removeTimer(id){
+  stopAlarm(id);timers=timers.filter(t=>t.id!==id);
+  if(!timers.length&&tickInterval){clearInterval(tickInterval);tickInterval=null;}
+  render();
+}
+function startTimer(id){
+  const t=timers.find(t=>t.id===id);if(!t)return;
+  const raw=t.rawH*3600+t.rawM*60+t.rawS;
+  t.remaining=calcActualSec(raw);
+  if(t.remaining<=0){showModal(t.name,t.pikminType);return;}
+  t.state='running';stopAlarm(id);
+  if(!tickInterval)tickInterval=setInterval(tick,1000);
+  render();
+}
+function pauseTimer(id){
+  const t=timers.find(t=>t.id===id);if(!t)return;
+  t.state=t.state==='paused'?'running':'paused';render();
+}
+function resetTimer(id){
+  const t=timers.find(t=>t.id===id);if(!t)return;
+  stopAlarm(id);t.state='idle';t.remaining=-1;render();
+}
+function applyGlobal(){
+  timers.forEach(t=>{
+    if(t.state==='running'||t.state==='paused'){
+      const raw=t.rawH*3600+t.rawM*60+t.rawS;t.remaining=calcActualSec(raw);
+    }
+  });
+  renderDisplays();
+  showToast('已套用搶菇時間至所有鬧鐘！');
+}
+function sortTimers(){
+  timers.sort((a,b)=>{
+    const ra=a.state==='idle'?calcActualSec(a.rawH*3600+a.rawM*60+a.rawS):a.remaining;
+    const rb=b.state==='idle'?calcActualSec(b.rawH*3600+b.rawM*60+b.rawS):b.remaining;
+    return ra-rb;
+  });
+  document.getElementById('sort-label').textContent='✓ 已依剩餘時間排序';
+  render();
+}
+function tick(){
+  let any=false;
+  timers.forEach(t=>{
+    if(t.state==='running'){any=true;t.remaining--;
+      if(t.remaining<=0){t.remaining=0;t.state='done';showModal(t.name,t.pikminType);playAlarm(t.id);}
+    }
+  });
+  if(!any){clearInterval(tickInterval);tickInterval=null;}
+  renderDisplays();
+}
+
+function updateRaw(id,field,val){const t=timers.find(t=>t.id===id);if(t){t[field]=Math.max(0,parseInt(val)||0);}}
+function updateName(id,val){const t=timers.find(t=>t.id===id);if(t)t.name=val;}
+
+function renderDisplays(){
+  timers.forEach(t=>{
+    const disp=document.getElementById('disp-'+t.id);
+    const badge=document.getElementById('badge-'+t.id);
+    const actual=document.getElementById('actual-'+t.id);
+    const card=document.getElementById('card-'+t.id);
+    if(!disp)return;
+    const sec=t.state==='idle'?calcActualSec(t.rawH*3600+t.rawM*60+t.rawS):t.remaining;
+    disp.textContent=fmtTime(sec);
+    disp.className='timer-display'+(t.remaining>=0&&t.remaining<=30?' urgent':'');
+    const labels={idle:'待機',running:'計時中',paused:'暫停',done:'完畢'};
+    if(badge){badge.textContent=labels[t.state];badge.className='badge '+t.state;}
+    if(actual){
+      const raw=t.rawH*3600+t.rawM*60+t.rawS;
+      actual.innerHTML=`預計倒數：<strong>${fmtTime(calcActualSec(raw))}</strong>`;
+    }
+    if(card)card.className='timer-card '+(t.state!=='idle'?t.state:'');
+  });
+}
+
+function render(){
+  const container=document.getElementById('timers-container');
+  container.innerHTML='';
+  const labls={idle:'待機',running:'計時中',paused:'暫停',done:'完畢'};
+  timers.forEach(t=>{
+    const raw=t.rawH*3600+t.rawM*60+t.rawS;
+    const sec=t.state==='idle'?calcActualSec(raw):t.remaining;
+    const isActive=t.state==='running'||t.state==='paused';
+    const div=document.createElement('div');
+    div.className='timer-card '+(t.state!=='idle'?t.state:'');
+    div.id='card-'+t.id;
+    div.innerHTML=`
+      <div class="card-inner">
+        <div class="card-left">
+          <div class="timer-top">
+            <span class="pikmin-icon">${pikminSVG(t.pikminType,34,t.state==='running')}</span>
+            <input class="timer-name-input" value="${t.name}" oninput="updateName(${t.id},this.value)" ${isActive?'readonly':''}>
+            <span class="badge ${t.state}" id="badge-${t.id}">${labls[t.state]}</span>
+          </div>
+          <div class="set-row">
+            <span class="set-label">設定時間</span>
+            <div class="time-inputs">
+              <input type="number" value="${t.rawH}" min="0" max="23" onchange="updateRaw(${t.id},'rawH',this.value);renderDisplays()" ${isActive?'disabled':''}>
+              <span>時</span>
+              <input type="number" value="${t.rawM}" min="0" max="59" onchange="updateRaw(${t.id},'rawM',this.value);renderDisplays()" ${isActive?'disabled':''}>
+              <span>分</span>
+              <input type="number" value="${t.rawS}" min="0" max="59" onchange="updateRaw(${t.id},'rawS',this.value);renderDisplays()" ${isActive?'disabled':''}>
+              <span>秒</span>
+            </div>
+          </div>
+          <div class="actual-row" id="actual-${t.id}">預計倒數：<strong>${fmtTime(calcActualSec(raw))}</strong></div>
+        </div>
+        <div class="card-right">
+          <div class="timer-display${sec>=0&&sec<=30?' urgent':''}" id="disp-${t.id}">${fmtTime(sec)}</div>
+          <div class="card-btns">
+            ${t.state==='idle'?`<button class="btn btn-green btn-sm" onclick="startTimer(${t.id})">▶ 開始</button>`:''}
+            ${t.state==='running'?`<button class="btn btn-orange btn-sm" onclick="pauseTimer(${t.id})">⏸ 暫停</button>`:''}
+            ${t.state==='paused'?`<button class="btn btn-green btn-sm" onclick="pauseTimer(${t.id})">▶ 繼續</button>`:''}
+            ${t.state!=='idle'?`<button class="btn btn-ghost btn-sm" onclick="resetTimer(${t.id})">↺ 重設</button>`:''}
+            ${t.state==='done'?`<button class="btn btn-ghost btn-sm" onclick="stopAlarm(${t.id});resetTimer(${t.id})">🔇</button>`:''}
+            <button class="btn btn-danger btn-sm" onclick="removeTimer(${t.id})">✕</button>
+          </div>
+        </div>
+      </div>`;
+    container.appendChild(div);
+  });
+  const addBtn=document.getElementById('add-btn');
+  if(addBtn)addBtn.disabled=timers.length>=MAX;
+}
+
+function showModal(name, pikminType){
+  const bd=document.createElement('div');
+  bd.className='modal-backdrop';
+  bd.innerHTML=`<div class="modal">
+    <div class="modal-pikmin">${pikminSVG(pikminType??0,56,false)}</div>
+    <h2>時間到！🍄</h2>
+    <p><strong>${name}</strong><br>的倒數計時已結束！<br>快去搶菇吧！</p>
+    <button class="btn btn-green" onclick="this.closest('.modal-backdrop').remove();stopAllAlarms()">好的，出發！</button>
+  </div>`;
+  document.body.appendChild(bd);
+}
+
+function showToast(msg){
+  const t=document.createElement('div');
+  t.style.cssText='position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:#2d6a0a;color:white;padding:8px 18px;border-radius:30px;font-size:13px;font-weight:700;z-index:9998;font-family:Nunito,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.2)';
+  t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),2200);
+}
+
+document.getElementById('snatch-sec').addEventListener('input',renderDisplays);
+
+addTimer();addTimer();addTimer();
+</script>
+</body>
+</html>
