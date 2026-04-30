@@ -407,11 +407,51 @@ document.getElementById('title-pkm-right').innerHTML = pkmPurple(40, false);
 
 // ---- App State ----
 const MAX = 10;
+const LS_TIMERS = 'pikmin_timers_v1';
+const LS_SNATCH = 'pikmin_snatch_v1';
 let timers = [];
 let tickInterval = null;
 let alarmCtx = null;
 let activeAlarms = {};
 
+// ---- Persistence ----
+function saveState(){
+  try{
+    // When saving running/paused timers, record the timestamp so we can adjust on restore
+    const toSave = timers.map(t => {
+      const copy = {...t};
+      if(t.state === 'running') copy._savedAt = Date.now();
+      return copy;
+    });
+    localStorage.setItem(LS_TIMERS, JSON.stringify(toSave));
+    localStorage.setItem(LS_SNATCH, document.getElementById('snatch-sec').value);
+  }catch(e){}
+}
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(LS_TIMERS);
+    const snatch = localStorage.getItem(LS_SNATCH);
+    if(snatch) document.getElementById('snatch-sec').value = snatch;
+    if(!raw) return false;
+    const saved = JSON.parse(raw);
+    if(!Array.isArray(saved) || saved.length === 0) return false;
+    timers = saved.map(t => {
+      // If it was running when saved, deduct elapsed seconds
+      if(t.state === 'running' && t._savedAt){
+        const elapsed = Math.floor((Date.now() - t._savedAt) / 1000);
+        t.remaining = Math.max(0, t.remaining - elapsed);
+        if(t.remaining === 0) t.state = 'done';
+      }
+      // Paused timers keep their remaining as-is
+      delete t._savedAt;
+      return t;
+    });
+    return true;
+  }catch(e){ return false; }
+}
+
+// ---- Audio ----
 function getCtx(){if(!alarmCtx)alarmCtx=new(window.AudioContext||window.webkitAudioContext)();return alarmCtx;}
 
 function playAlarm(id){
@@ -438,6 +478,7 @@ function playAlarm(id){
 function stopAlarm(id){if(activeAlarms[id]){activeAlarms[id].stop();delete activeAlarms[id];}}
 function stopAllAlarms(){Object.keys(activeAlarms).forEach(stopAlarm);}
 
+// ---- Helpers ----
 function snatchSec(){return parseInt(document.getElementById('snatch-sec').value)||0;}
 function calcActualSec(raw){return Math.max(0,raw+300-snatchSec());}
 function fmtTime(sec){
@@ -446,16 +487,20 @@ function fmtTime(sec){
   return [h,m,s].map(v=>String(v).padStart(2,'0')).join(':');
 }
 
+// State priority for sort: running=0, paused=1, idle=2, done=3
+const STATE_PRIORITY = {running:0, paused:1, idle:2, done:3};
+
+// ---- Timer Operations ----
 function addTimer(){
   if(timers.length>=MAX){showToast('最多只能設 10 個鬧鐘！');return;}
   const idx=timers.length;
   timers.push({id:Date.now(),name:'鬧鐘 '+(idx+1),rawH:0,rawM:5,rawS:0,remaining:-1,state:'idle',pikminType:idx%PIKMIN_DRAW.length});
-  render();
+  saveState(); render();
 }
 function removeTimer(id){
   stopAlarm(id);timers=timers.filter(t=>t.id!==id);
   if(!timers.length&&tickInterval){clearInterval(tickInterval);tickInterval=null;}
-  render();
+  saveState(); render();
 }
 function startTimer(id){
   const t=timers.find(t=>t.id===id);if(!t)return;
@@ -464,15 +509,17 @@ function startTimer(id){
   if(t.remaining<=0){showModal(t.name,t.pikminType);return;}
   t.state='running';stopAlarm(id);
   if(!tickInterval)tickInterval=setInterval(tick,1000);
-  render();
+  saveState(); render();
 }
 function pauseTimer(id){
   const t=timers.find(t=>t.id===id);if(!t)return;
-  t.state=t.state==='paused'?'running':'paused';render();
+  t.state=t.state==='paused'?'running':'paused';
+  saveState(); render();
 }
 function resetTimer(id){
   const t=timers.find(t=>t.id===id);if(!t)return;
-  stopAlarm(id);t.state='idle';t.remaining=-1;render();
+  stopAlarm(id);t.state='idle';t.remaining=-1;
+  saveState(); render();
 }
 function applyGlobal(){
   timers.forEach(t=>{
@@ -480,18 +527,25 @@ function applyGlobal(){
       const raw=t.rawH*3600+t.rawM*60+t.rawS;t.remaining=calcActualSec(raw);
     }
   });
-  renderDisplays();
+  saveState(); renderDisplays();
   showToast('已套用搶菇時間至所有鬧鐘！');
 }
+
 function sortTimers(){
   timers.sort((a,b)=>{
-    const ra=a.state==='idle'?calcActualSec(a.rawH*3600+a.rawM*60+a.rawS):a.remaining;
-    const rb=b.state==='idle'?calcActualSec(b.rawH*3600+b.rawM*60+b.rawS):b.remaining;
-    return ra-rb;
+    const pa = STATE_PRIORITY[a.state] ?? 2;
+    const pb = STATE_PRIORITY[b.state] ?? 2;
+    // First sort by state priority
+    if(pa !== pb) return pa - pb;
+    // Within same state, sort by remaining/actual time ascending
+    const ra = a.state==='idle' ? calcActualSec(a.rawH*3600+a.rawM*60+a.rawS) : a.remaining;
+    const rb = b.state==='idle' ? calcActualSec(b.rawH*3600+b.rawM*60+b.rawS) : b.remaining;
+    return ra - rb;
   });
-  document.getElementById('sort-label').textContent='✓ 已依剩餘時間排序';
-  render();
+  document.getElementById('sort-label').textContent='✓ 計時中優先，依時間排序';
+  saveState(); render();
 }
+
 function tick(){
   let any=false;
   timers.forEach(t=>{
@@ -500,12 +554,19 @@ function tick(){
     }
   });
   if(!any){clearInterval(tickInterval);tickInterval=null;}
-  renderDisplays();
+  saveState(); renderDisplays();
 }
 
-function updateRaw(id,field,val){const t=timers.find(t=>t.id===id);if(t){t[field]=Math.max(0,parseInt(val)||0);}}
-function updateName(id,val){const t=timers.find(t=>t.id===id);if(t)t.name=val;}
+function updateRaw(id,field,val){
+  const t=timers.find(t=>t.id===id);
+  if(t){t[field]=Math.max(0,parseInt(val)||0); saveState();}
+}
+function updateName(id,val){
+  const t=timers.find(t=>t.id===id);
+  if(t){t.name=val; saveState();}
+}
 
+// ---- Render ----
 function renderDisplays(){
   timers.forEach(t=>{
     const disp=document.getElementById('disp-'+t.id);
@@ -596,9 +657,22 @@ function showToast(msg){
   setTimeout(()=>t.remove(),2200);
 }
 
-document.getElementById('snatch-sec').addEventListener('input',renderDisplays);
+// ---- Save snatch setting on change ----
+document.getElementById('snatch-sec').addEventListener('input', ()=>{ saveState(); renderDisplays(); });
 
-addTimer();addTimer();addTimer();
+// ---- Init: load from localStorage, or create defaults ----
+const restored = loadState();
+if(restored && timers.length > 0){
+  // Resume any running timers after page reload
+  const anyRunning = timers.some(t => t.state === 'running');
+  if(anyRunning && !tickInterval) tickInterval = setInterval(tick, 1000);
+  // Re-trigger alarms for done timers that weren't acknowledged
+  timers.filter(t => t.state === 'done').forEach(t => playAlarm(t.id));
+  render();
+  showToast('✓ 已還原上次的鬧鐘設定');
+} else {
+  addTimer(); addTimer(); addTimer();
+}
 </script>
 </body>
 </html>
